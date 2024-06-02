@@ -1,6 +1,6 @@
-'use client'
+'use client';
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react';
 import 'codemirror/lib/codemirror.css';
 import 'codemirror/theme/material.css';
 
@@ -59,17 +59,19 @@ const CodeEditor: React.FC = () => {
                 },
                 body: JSON.stringify({ content: code }),
             });
+            const result = await response.json();
             if (!response.ok) {
-                const error = await response.json();
-                setOutput(error.detail || 'An error occurred');
+                const errorMessage = result.detail instanceof Array
+                    ? result.detail.map(err => err.msg).join(', ')
+                    : result.detail;
+                setOutput(`${errorMessage}`);
             } else {
-                const result = await response.json();
                 setOutput(result.output || result.error);
             }
         } catch (error) {
             setOutput('Failed to connect to the server.');
         }
-    }
+    };
 
     const handleSubmit = async () => {
         try {
@@ -121,7 +123,13 @@ const CodeEditor: React.FC = () => {
                 <button className="p-2 bg-red-500 text-white rounded" onClick={handleRunCode}>
                     Run Code
                 </button>
-                <button className="p-2 bg-green-500 text-white rounded" onClick={handleSubmit}>
+                <button
+                    className={`p-2 text-white rounded ${
+                        code.trim() ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-500 cursor-not-allowed'
+                    }`}
+                    onClick={handleSubmit}
+                    disabled={!code.trim()}
+                >
                     Submit
                 </button>
             </div>
