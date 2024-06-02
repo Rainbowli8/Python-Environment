@@ -104,7 +104,6 @@ const CodeEditor: React.FC = () => {
         }
     };
 
-
     return (
         <div className="flex flex-col items-center min-h-screen w-full h-full p-4 bg-gray-100">
             <h1 className="text-2xl font-bold mb-4">PYTHON EXECUTION ENVIRONMENT</h1>

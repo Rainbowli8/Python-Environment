@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from .database import SessionLocal, engine
 from .models import Base, Code
 import subprocess
+import sys
+import os
 
 app = FastAPI()
 
@@ -28,10 +30,34 @@ class CodeResponse(BaseModel):
     content: str
     output: str
 
+def execute_python_code(code: str):
+    try:
+        # Prepend necessary imports to the user code
+        complete_code = f"""
+import numpy as np
+import pandas as pd
+import scipy.stats as stats
+{code}"""
+        result = subprocess.run(
+            [sys.executable, "-c", complete_code],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=os.environ  # Pass the current environment variables
+        )
+        return result.stdout, result.stderr
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=400, detail="Execution timed out")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.post("/store/", response_model=CodeResponse)
 async def store_code(code: CodeCreate):
+    output, error = execute_python_code(code.content)
+    if error:
+        raise HTTPException(status_code=400, detail=f"Code execution failed: {error}")
     db: Session = SessionLocal()
-    db_code = Code(content=code.content, output=code.output)
+    db_code = Code(content=code.content, output=output)
     db.add(db_code)
     db.commit()
     db.refresh(db_code)
@@ -39,22 +65,5 @@ async def store_code(code: CodeCreate):
 
 @app.post("/execute/")
 async def execute_code(code: CodeCreate):
-    try:
-        # Prepend necessary imports to the user code
-        complete_code = f"""
-#import numpy as np
-#import pandas as pd
-#import scipy.stats as stats
-{code.content}"""
-        # Execute the complete code
-        result = subprocess.run(
-            ["python", "-c", complete_code],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-        return {"output": result.stdout, "error": result.stderr}
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=400, detail="Execution timed out")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    output, error = execute_python_code(code.content)
+    return {"output": output, "error": error}
